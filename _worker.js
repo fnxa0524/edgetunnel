@@ -369,14 +369,54 @@ export default {
 						const 协议类型 = ((url.searchParams.has('surge') || ua.includes('surge')) && config_JSON.协议类型 !== 'ss') ? 'tro' + 'jan' : config_JSON.协议类型;
 						let 订阅内容 = '';
 						if (订阅类型 === 'mixed') {
-							let 地址池;
-							try { 地址池 = await loadPublicAddressPool(env); }
-							catch { return new Response('公开地址池暂时不可用', { status: 503, headers: { 'Content-Type': 'text/plain;charset=utf-8' } }); }
 							const TLS分片参数 = config_JSON.TLS分片 == 'Shadowrocket' ? `&fragment=${encodeURIComponent('1,40-60,30-50,tlshello')}` : config_JSON.TLS分片 == 'Happ' ? `&fragment=${encodeURIComponent('3,1,tlshello')}` : '';
-							// 生产 mixed/Base64 订阅只使用独立托管地址池。
-							const 完整优选IP = 地址池.entries.map(({ server, port, name }) => `${server}:${port}#${name}`);
-							const 其他节点LINK = '';
-							const 反代IP池 = [];
+							let 完整优选IP = [], 其他节点LINK = '', 反代IP池 = [];
+
+							if (!url.searchParams.has('sub') && config_JSON.优选订阅生成.local) { // 本地生成订阅
+								const 完整优选列表 = config_JSON.优选订阅生成.本地IP库.随机IP ? (
+									await 生成随机IP(request, config_JSON.优选订阅生成.本地IP库.随机数量, config_JSON.优选订阅生成.本地IP库.指定端口)
+								)[0] : await env.KV.get('ADD.txt') ? await 整理成数组(await env.KV.get('ADD.txt')) : (
+									await 生成随机IP(request, config_JSON.优选订阅生成.本地IP库.随机数量, config_JSON.优选订阅生成.本地IP库.指定端口)
+								)[0];
+								const 优选API = [], 优选IP = [], 其他节点 = [];
+								for (const 元素 of 完整优选列表) {
+									if (元素.toLowerCase().startsWith('sub://')) {
+										优选API.push(元素);
+									} else {
+										const 备注位置 = 元素.indexOf('#');
+										const 地址部分 = 备注位置 > -1 ? 元素.slice(0, 备注位置) : 元素;
+										const 备注部分 = 备注位置 > -1 ? 元素.slice(备注位置) : '';
+										const subMatch = 元素.match(/sub\s*=\s*([^\s&#]+)/i);
+										if (subMatch && subMatch[1].trim().includes('.')) {
+											const 优选IP作为反代IP = 元素.toLowerCase().includes('proxyip=true');
+											if (优选IP作为反代IP) 优选API.push('sub://' + subMatch[1].trim() + "?proxyip=true" + (元素.includes('#') ? ('#' + 元素.split('#')[1]) : ''));
+											else 优选API.push('sub://' + subMatch[1].trim() + (元素.includes('#') ? ('#' + 元素.split('#')[1]) : ''));
+										} else if (地址部分.toLowerCase().startsWith('https://')) {
+											优选API.push(元素);
+										} else if (地址部分.toLowerCase().includes('://')) {
+											if (元素.includes('#')) {
+												const 地址备注分离 = 元素.split('#');
+												其他节点.push(地址备注分离[0] + '#' + encodeURIComponent(decodeURIComponent(地址备注分离[1])));
+											} else 其他节点.push(元素);
+										} else {
+											if (地址部分.includes('*')) {
+												优选IP.push(替换星号为随机字符(地址部分) + 备注部分);
+											} else 优选IP.push(元素);
+										}
+									}
+								}
+								const 请求优选API内容 = await 请求优选API(优选API, '443');
+								const 合并其他节点数组 = [...new Set(其他节点.concat(请求优选API内容[1]))];
+								其他节点LINK = 合并其他节点数组.length > 0 ? 合并其他节点数组.join('\n') + '\n' : '';
+								const 优选API的IP = 请求优选API内容[0];
+								反代IP池 = 请求优选API内容[3] || [];
+								完整优选IP = [...new Set(优选IP.concat(优选API的IP))];
+							} else { // 优选订阅生成器
+								let 优选订阅生成器HOST = url.searchParams.get('sub') || config_JSON.优选订阅生成.SUB;
+								const [优选生成器IP数组, 优选生成器其他节点] = await 获取优选订阅生成器数据(优选订阅生成器HOST);
+								完整优选IP = 完整优选IP.concat(优选生成器IP数组);
+								其他节点LINK += 优选生成器其他节点;
+							}
 							const ECHLINK参数 = config_JSON.ECH ? `&ech=${encodeURIComponent((config_JSON.ECHConfig.SNI ? config_JSON.ECHConfig.SNI + '+' : '') + config_JSON.ECHConfig.DNS)}` : '';
 							const isLoonOrSurge = ua.includes('loon') || ua.includes('surge');
 							const { type: 传输协议, 路径字段名, 域名字段名 } = 获取传输协议配置(config_JSON);
