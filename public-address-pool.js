@@ -59,8 +59,13 @@ function sanitizeRegionNote(note) {
 }
 
 function regionCode(note) {
-	const match = String(note || '').toUpperCase().match(/(?:^|[^A-Z])([A-Z]{2,3})(?:$|[^A-Z])/);
-	return match ? match[1] : 'ZZ';
+	const tokens = String(note || '').toUpperCase().match(/[A-Z]{2,3}/g) || [];
+	// 小号上游备注形如 CF4-HK-...；CF 是来源前缀，地区码在下一段。
+	const regions = new Set([
+		'HK', 'JP', 'SG', 'US', 'KR', 'TW', 'TH', 'MY', 'PH', 'VN', 'ID',
+		'GB', 'DE', 'FR', 'NL', 'CA', 'AU', 'IN', 'BR', 'RU', 'AE',
+	]);
+	return tokens.find(token => regions.has(token)) || tokens.find(token => token !== 'CF') || 'ZZ';
 }
 
 export function parsePublicAddressPool(text) {
