@@ -1,9 +1,3 @@
-import {
-	loadPublicAddressPool,
-	publicAddressPoolMetadata,
-	readPublicAddressPoolStatus,
-} from './public-address-pool.js';
-
 const Version = '2026-07-29 23:57:34';
 let config_JSON, 缓存SOCKS5白名单 = null, 调试日志打印 = false;
 let SOCKS5白名单 = ['*tapecontent.net', '*cloudatacdn.com', '*loadshare.org', '*cdn-centaurus.com', 'scholar.google.com'];
@@ -30,20 +24,6 @@ export default {
 			请求URL文本 = 请求URL主体部分.replace(/%3f/i, '?') + 请求URL锚点部分;
 		}
 		const url = new URL(请求URL文本);
-		const 地址池接口路径 = url.pathname.toLowerCase();
-		if (地址池接口路径 === '/.well-known/address-pool/status') {
-			if (request.method !== 'GET') return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'GET' } });
-			return new Response(JSON.stringify(await readPublicAddressPoolStatus(env)), { status: 200, headers: { 'Content-Type': 'application/json;charset=utf-8', 'Cache-Control': 'no-store' } });
-		}
-		if (地址池接口路径 === '/.well-known/address-pool/refresh') {
-			if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'POST' } });
-			try {
-				const 地址池 = await loadPublicAddressPool(env);
-				return new Response(JSON.stringify(publicAddressPoolMetadata(地址池)), { status: 200, headers: { 'Content-Type': 'application/json;charset=utf-8', 'Cache-Control': 'no-store' } });
-			} catch {
-				return new Response(JSON.stringify({ available: false, status: 'unavailable', error: 'public_address_pool_unavailable' }), { status: 503, headers: { 'Content-Type': 'application/json;charset=utf-8', 'Cache-Control': 'no-store' } });
-			}
-		}
 		const UA = request.headers.get('User-Agent') || 'null';
 		const upgradeHeader = (request.headers.get('Upgrade') || '').toLowerCase(), contentType = (request.headers.get('content-type') || '').toLowerCase();
 		const 管理员密码 = env.ADMIN || env.admin || env.PASSWORD || env.password || env.pswd || env.TOKEN || env.KEY || env.UUID || env.uuid;
